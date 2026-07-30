@@ -1,0 +1,1 @@
+def execute_stored_procedure(engine, procedure_name):
