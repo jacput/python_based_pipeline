@@ -2,13 +2,14 @@ import pandas as pd
 import sys
 from datetime import date
 from pathlib import Path
+from datetime import datetime, timezone
 
 from config import load_config
 from csv_loader import csv_loader
 from logger import setup_logger
-import logger
 from validator import validate_required_columns
 from database import create_database_engine, upload_to_staging  
+from execute_stored_proc import validate_staging_batch, load_sales
 
 todays_date = date.today().strftime("%m%d%Y")
 # Open the config file and parse its contents
@@ -25,6 +26,9 @@ REQUIRED_COLUMNS = [
     "UnitPrice",
     "State"
 ]
+
+VALIDATION_SUCCESS = 0
+
 
 def main():   
 
@@ -53,6 +57,8 @@ def main():
 
     source_file_with_date_str = str(source_file_with_date)  # Convert Path object to string for logging
 
+    batch_id = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
+
     try:
         df = csv_loader(source_file_with_date, logger)
     except Exception as e:
@@ -71,14 +77,26 @@ def main():
 
     try:
         engine = create_database_engine(config_data["database_config"])
-        upload_to_staging(df, source_file_with_date_str, engine)
+        upload_to_staging(df, source_file_with_date_str, engine, batch_id)
         logger.info("Data uploaded to staging table successfully.")
+        current_batch_id = df['batch_id'].iloc[0]  # Get the first batch_id from the DataFrame
+        logger.info("Current batch_id: %s", current_batch_id)
+        return_value = validate_staging_batch(engine, current_batch_id, logger)  # Pass the first batch_id to the stored procedure
+        if return_value == VALIDATION_SUCCESS:
+            logger.info("Stored procedure executed successfully.")
+            load_sales(engine, current_batch_id, logger)
+        if return_value > 0:
+            logger.error("All rows could not be validated:, please check the data in batch %s, in SalesStagingValidation", current_batch_id)
+            logger.info("Number of failed rows: %d", return_value)
+            sys.exit(1)
     except Exception as e:
-        logger.error("Error uploading data to staging table: %s", e)
+        logger.error("Error in data pipeline: %s", e)
         sys.exit(1)
     finally:
         if engine:
             engine.dispose()  # Ensure the database connection is closed
+
+    
 
     sys.exit(0)  # Graceful success exit
 

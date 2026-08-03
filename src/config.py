@@ -17,7 +17,7 @@ def load_config(config_file_path):
         raise FileNotFoundError(f"Config file not found: {config_file_path}")
     except json.JSONDecodeError:
         print(f"Invalid JSON in config file: {config_file_path}")
-        raise json.JSONDecodeError(f"Invalid JSON in config file: {config_file_path}")
+        raise json.JSONDecodeError(f"Invalid JSON in config file: {config_file_path}", config_file_path, 0)
 
     for key in REQUIRED_KEYS:
         if key not in config:

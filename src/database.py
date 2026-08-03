@@ -12,7 +12,7 @@ def create_database_engine(database_config):
         driver = database_config["driver"]
 
         # 'Trusted_Connection=yes' enforces Windows Authentication
-        params = urllib.parse.quote_plus(
+        params = urllib.parse.quote_plus( # type: ignore
             f"DRIVER={driver};SERVER={server};DATABASE={database};Trusted_Connection=yes;"
         )
 
@@ -24,7 +24,7 @@ def create_database_engine(database_config):
     except Exception as e:
         raise Exception(f"Error creating database engine: {e}") from e
 
-def upload_to_staging(df: pd.DataFrame, source_file_string: str, engine: Engine) -> None:
+def upload_to_staging(df: pd.DataFrame, source_file_string: str, engine: Engine, batch_id: str) -> None:
 
     """"
     Loads the DataFrame into the SalesStaging table.
@@ -39,8 +39,6 @@ def upload_to_staging(df: pd.DataFrame, source_file_string: str, engine: Engine)
 
         df["source_file_name"] = source_file_string  # Use the provided source file name
         df['inserted_at'] = pd.Timestamp.now()
-
-        batch_id = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
         df['batch_id'] = batch_id  # Add a batch_id column for tracking
 
         with engine.begin() as connection:
