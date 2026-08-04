@@ -1,3 +1,4 @@
+from ast import If
 import urllib
 import pandas as pd
 from sqlalchemy import create_engine, text, Engine
@@ -54,7 +55,26 @@ def upload_to_staging(df: pd.DataFrame, source_file_string: str, engine: Engine,
             chunksize=25000       # Controls the number of rows written per batch
             )
 
+
     except Exception as e:
         raise Exception(f"Error uploading to staging table: {e}") from e
+
+
+def generic_sql_count_method(engine: Engine, table_name: str, batch_id: str) -> int:
+    """
+    Generic method to count rows in a specified table.
+    """
+    row_count = None  # Initialize row_count to None
+
+    try:
+        with engine.begin() as connection:
+            result = connection.execute(text(f"SELECT COUNT(*) FROM {table_name} where batch_id = :batch_id"), {"batch_id": batch_id})
+            row_count = result.scalar()
+        if row_count is None:
+            return 0  # If no rows are found, return 0
+        else:
+            return row_count
+    except Exception as e:
+        raise Exception(f"Error counting rows in {table_name}: {e}") from e
 
 
